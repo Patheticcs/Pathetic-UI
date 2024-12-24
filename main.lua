@@ -551,6 +551,7 @@ ButtonAimbot.MouseButton1Click:Connect(function()
         local TweenService = game:GetService("TweenService")
         local LocalPlayer = Players.LocalPlayer
         local Holding = false
+        local maxDistance = 1000 -- Distance limit for the aimbot (in studs)
 
         _G.AimbotEnabled = true
         _G.TeamCheck = false
@@ -559,10 +560,10 @@ ButtonAimbot.MouseButton1Click:Connect(function()
         _G.CircleSides = 64
         _G.CircleColor = Color3.fromRGB(255, 255, 255)
         _G.CircleTransparency = 0
-        _G.CircleRadius = 300
+        _G.CircleRadius = 200
         _G.CircleFilled = false
         _G.CircleVisible = true
-        _G.CircleThickness = 0
+        _G.CircleThickness = 1
 
         local FOVCircle = Drawing.new("Circle")
         FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -586,8 +587,11 @@ ButtonAimbot.MouseButton1Click:Connect(function()
                         local screenPos = Camera:WorldToScreenPoint(aimPartPos)
                         local mousePos = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
                         local distance = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        
+                        -- Get the distance between the local player and the target player
+                        local playerDistance = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
 
-                        if distance < closestDistance then
+                        if distance < closestDistance and playerDistance <= maxDistance then
                             closestPlayer = player
                             closestDistance = distance
                         end
@@ -640,3 +644,4 @@ ButtonAimbot.MouseButton1Click:Connect(function()
         end
     end
 end)
+
