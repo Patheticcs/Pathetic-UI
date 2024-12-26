@@ -190,50 +190,104 @@ local originalLighting = {
 	OutdoorAmbient = Lighting.OutdoorAmbient
 }
 
-local originalWorkspaceState = {}
-local originalPlayerState = {}
-local playerFireEffects = {}
+-- Function to capture original appearance
+local function captureOriginalState(character)
+	local state = {}
 
-local function storeOriginalState()
-	for _, obj in pairs(workspace:GetDescendants()) do
+	-- Store states for all relevant objects
+	for _, obj in ipairs(character:GetDescendants()) do
 		if obj:IsA("BasePart") then
-			originalWorkspaceState[obj] = {
-				color = obj.Color,
-				material = obj.Material
+			state[obj] = {
+				Type = "BasePart",
+				Color = obj.Color,
+				Material = obj.Material,
+				Transparency = obj.Transparency
 			}
-		elseif obj:IsA("Decal") then
-			originalWorkspaceState[obj] = {
-				texture = obj.Texture
+		elseif obj:IsA("Decal") and obj.Name == "face" then
+			state[obj] = {
+				Type = "Decal",
+				Texture = obj.Texture,
+				Transparency = obj.Transparency,
+				Color3 = obj.Color3
 			}
 		end
 	end
 
-	for _, player in pairs(Players:GetPlayers()) do
-		if player.Character then
-			originalPlayerState[player] = {}
-			for _, part in pairs(player.Character:GetDescendants()) do
-				if part:IsA("BasePart") then
-					originalPlayerState[player][part] = {
-						color = part.Color,
-						material = part.Material
-					}
-				elseif part:IsA("Decal") then
-					originalPlayerState[player][part] = {
-						texture = part.Texture
-					}
-				end
+	return state
+end
+
+-- Function to restore original appearance
+local function restoreOriginalState(character, originalState)
+	if not character or not originalState then return end
+
+	for obj, state in pairs(originalState) do
+		if obj and obj.Parent then  -- Check if object still exists
+			if state.Type == "BasePart" then
+				obj.Color = state.Color
+				obj.Material = state.Material
+				obj.Transparency = state.Transparency
+			elseif state.Type == "Decal" and obj.Name == "face" then
+				obj.Texture = state.Texture
+				obj.Transparency = state.Transparency
+				obj.Color3 = state.Color3
 			end
+		end
+	end
+
+	-- Remove fire effect if it exists
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if humanoidRootPart then
+		local fire = humanoidRootPart:FindFirstChild("DarkModeFire")
+		if fire then
+			fire:Destroy()
+		end
+	end
+
+	-- Remove black skin color and revert to original skin color
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		-- Retrieve the original HumanoidDescription
+		local originalDescription = players:GetHumanoidDescriptionFromUserId(humanoid.UserId)
+
+		-- Set the skin colors based on the original description
+		if originalDescription then
+			humanoid:ApplyDescription(originalDescription)
 		end
 	end
 end
 
-local function removeFireEffects()
-	for _, fireEffect in pairs(playerFireEffects) do
-		if fireEffect.Parent then
-			fireEffect:Destroy()
+-- Store original states for each player
+local originalStates = {}
+
+-- Function to apply 666 effect
+local function apply666Effect(character)
+	if not character then return end
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if player and not originalStates[player.UserId] then
+		originalStates[player.UserId] = captureOriginalState(character)
+	end
+
+	for _, obj in ipairs(character:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			obj.Color = Color3.fromRGB(0, 0, 0)
+			obj.Material = Enum.Material.SmoothPlastic
+		elseif obj:IsA("Decal") and obj.Name == "face" then
+			obj.Texture = "rbxassetid://45345525662"
 		end
 	end
-	playerFireEffects = {}
+
+	-- Add fire effect
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if humanoidRootPart and not humanoidRootPart:FindFirstChild("DarkModeFire") then
+		local fire = Instance.new("Fire")
+		fire.Name = "DarkModeFire"
+		fire.Size = 15
+		fire.Heat = 50
+		fire.Color = Color3.fromRGB(255, 0, 0)
+		fire.SecondaryColor = Color3.fromRGB(255, 127, 0)
+		fire.Parent = humanoidRootPart
+	end
 end
 
 ButtonDark.MouseButton1Click:Connect(function()
@@ -241,8 +295,10 @@ ButtonDark.MouseButton1Click:Connect(function()
 	toggleButtonState(ButtonDark, is666ModeEnabled)
 
 	if is666ModeEnabled then
-		storeOriginalState()
+		-- Clear previous states
+		originalStates = {}
 
+		-- Apply dark lighting
 		Lighting.ClockTime = 0
 		Lighting.FogColor = Color3.fromRGB(0, 0, 0)
 		Lighting.FogStart = 0
@@ -250,58 +306,20 @@ ButtonDark.MouseButton1Click:Connect(function()
 		Lighting.Ambient = Color3.fromRGB(0, 0, 0)
 		Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
 
-		for _, obj in pairs(workspace:GetDescendants()) do
-			if obj:IsA("BasePart") then
-				obj.Color = Color3.fromRGB(0, 0, 0)
-				obj.Material = Enum.Material.SmoothPlastic
-			elseif obj:IsA("Decal") then
-				obj.Texture = "rbxassetid://45345525662"
-			end
-		end
-
-		for _, player in pairs(Players:GetPlayers()) do
-			if player.Character then
-				for _, part in pairs(player.Character:GetDescendants()) do
-					if part:IsA("BasePart") then
-						part.Color = Color3.fromRGB(0, 0, 0)
-						part.Material = Enum.Material.SmoothPlastic
-					elseif part:IsA("Decal") then
-						part.Texture = "rbxassetid://45345525662"
+		-- Start the continuous effect loop
+		spawn(function()
+			while is666ModeEnabled do
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player.Character then
+						apply666Effect(player.Character)
 					end
 				end
-
-				local fire = Instance.new("Fire")
-				fire.Size = 15
-				fire.Heat = 50
-				fire.Color = Color3.fromRGB(255, 0, 0)
-				fire.SecondaryColor = Color3.fromRGB(255, 127, 0)
-				fire.Parent = player.Character.HumanoidRootPart
-				playerFireEffects[player] = fire
+				wait(0.1)
 			end
-		end
+		end)
+
 	else
-		for obj, state in pairs(originalWorkspaceState) do
-			if obj:IsA("BasePart") then
-				obj.Color = state.color
-				obj.Material = state.material
-			elseif obj:IsA("Decal") then
-				obj.Texture = state.texture
-			end
-		end
-
-		for player, parts in pairs(originalPlayerState) do
-			if player.Character then
-				for part, state in pairs(parts) do
-					if part:IsA("BasePart") then
-						part.Color = state.color
-						part.Material = state.material
-					elseif part:IsA("Decal") then
-						part.Texture = state.texture
-					end
-				end
-			end
-		end
-
+		-- Restore lighting
 		Lighting.ClockTime = originalLighting.ClockTime
 		Lighting.FogColor = originalLighting.FogColor
 		Lighting.FogStart = originalLighting.FogStart
@@ -309,8 +327,27 @@ ButtonDark.MouseButton1Click:Connect(function()
 		Lighting.Ambient = originalLighting.Ambient
 		Lighting.OutdoorAmbient = originalLighting.OutdoorAmbient
 
-		removeFireEffects()
+		-- Restore all players to their original state
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Character and originalStates[player.UserId] then
+				restoreOriginalState(player.Character, originalStates[player.UserId])
+			end
+		end
 	end
+end)
+
+-- Handle character respawning
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		if is666ModeEnabled then
+			-- If mode is enabled, capture state after character loads
+			wait(0.1)  -- Wait for character to fully load
+			originalStates[player.UserId] = captureOriginalState(character)
+		else
+			-- If mode is disabled, ensure character loads with original appearance
+			originalStates[player.UserId] = nil
+		end
+	end)
 end)
 
 -- Raining Fire Button
@@ -540,108 +577,107 @@ local ButtonAimbot = createButton("Aimbot", UDim2.new(0, 150, 0, 40))
 local aimbotEnabled = false
 
 ButtonAimbot.MouseButton1Click:Connect(function()
-    aimbotEnabled = not aimbotEnabled
-    toggleButtonState(ButtonAimbot, aimbotEnabled)
+	aimbotEnabled = not aimbotEnabled
+	toggleButtonState(ButtonAimbot, aimbotEnabled)
 
-    if aimbotEnabled then
-        local Camera = workspace.CurrentCamera
-        local Players = game:GetService("Players")
-        local RunService = game:GetService("RunService")
-        local UserInputService = game:GetService("UserInputService")
-        local TweenService = game:GetService("TweenService")
-        local LocalPlayer = Players.LocalPlayer
-        local Holding = false
-        local maxDistance = 1000 -- Distance limit for the aimbot (in studs)
+	if aimbotEnabled then
+		local Camera = workspace.CurrentCamera
+		local Players = game:GetService("Players")
+		local RunService = game:GetService("RunService")
+		local UserInputService = game:GetService("UserInputService")
+		local TweenService = game:GetService("TweenService")
+		local LocalPlayer = Players.LocalPlayer
+		local Holding = false
+		local maxDistance = 1000 -- Distance limit for the aimbot (in studs)
 
-        _G.AimbotEnabled = true
-        _G.TeamCheck = false
-        _G.AimPart = "Head"
-        _G.Sensitivity = 0
-        _G.CircleSides = 64
-        _G.CircleColor = Color3.fromRGB(255, 255, 255)
-        _G.CircleTransparency = 0
-        _G.CircleRadius = 200
-        _G.CircleFilled = false
-        _G.CircleVisible = true
-        _G.CircleThickness = 1
+		_G.AimbotEnabled = true
+		_G.TeamCheck = false
+		_G.AimPart = "Head"
+		_G.Sensitivity = 0
+		_G.CircleSides = 64
+		_G.CircleColor = Color3.fromRGB(255, 255, 255)
+		_G.CircleTransparency = 0
+		_G.CircleRadius = 200
+		_G.CircleFilled = false
+		_G.CircleVisible = true
+		_G.CircleThickness = 1
 
-        local FOVCircle = Drawing.new("Circle")
-        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        FOVCircle.Radius = _G.CircleRadius
-        FOVCircle.Filled = _G.CircleFilled
-        FOVCircle.Color = _G.CircleColor
-        FOVCircle.Visible = _G.CircleVisible
-        FOVCircle.Transparency = _G.CircleTransparency
-        FOVCircle.NumSides = _G.CircleSides
-        FOVCircle.Thickness = _G.CircleThickness
+		local FOVCircle = Drawing.new("Circle")
+		FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+		FOVCircle.Radius = _G.CircleRadius
+		FOVCircle.Filled = _G.CircleFilled
+		FOVCircle.Color = _G.CircleColor
+		FOVCircle.Visible = _G.CircleVisible
+		FOVCircle.Transparency = _G.CircleTransparency
+		FOVCircle.NumSides = _G.CircleSides
+		FOVCircle.Thickness = _G.CircleThickness
 
-        -- Function to get the closest player
-        local function GetClosestPlayer()
-            local closestPlayer = nil
-            local closestDistance = _G.CircleRadius
+		-- Function to get the closest player
+		local function GetClosestPlayer()
+			local closestPlayer = nil
+			local closestDistance = _G.CircleRadius
 
-            for _, player in pairs(Players:GetPlayers()) do
-                if player.Name ~= LocalPlayer.Name then
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild(_G.AimPart) then
-                        local aimPartPos = player.Character[_G.AimPart].Position
-                        local screenPos = Camera:WorldToScreenPoint(aimPartPos)
-                        local mousePos = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
-                        local distance = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                        
-                        -- Get the distance between the local player and the target player
-                        local playerDistance = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+			for _, player in pairs(Players:GetPlayers()) do
+				if player.Name ~= LocalPlayer.Name then
+					if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild(_G.AimPart) then
+						local aimPartPos = player.Character[_G.AimPart].Position
+						local screenPos = Camera:WorldToScreenPoint(aimPartPos)
+						local mousePos = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+						local distance = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
 
-                        if distance < closestDistance and playerDistance <= maxDistance then
-                            closestPlayer = player
-                            closestDistance = distance
-                        end
-                    end
-                end
-            end
+						-- Get the distance between the local player and the target player
+						local playerDistance = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
 
-            return closestPlayer
-        end
+						if distance < closestDistance and playerDistance <= maxDistance then
+							closestPlayer = player
+							closestDistance = distance
+						end
+					end
+				end
+			end
 
-        UserInputService.InputBegan:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton2 then
-                Holding = true
-            end
-        end)
+			return closestPlayer
+		end
 
-        UserInputService.InputEnded:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton2 then
-                Holding = false
-            end
-        end)
+		UserInputService.InputBegan:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseButton2 then
+				Holding = true
+			end
+		end)
 
-        RunService.RenderStepped:Connect(function()
-            if aimbotEnabled then
-                FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
-                FOVCircle.Radius = _G.CircleRadius
-                FOVCircle.Filled = _G.CircleFilled
-                FOVCircle.Color = _G.CircleColor
-                FOVCircle.Visible = _G.CircleVisible
-                FOVCircle.Transparency = _G.CircleTransparency
-                FOVCircle.NumSides = _G.CircleSides
-                FOVCircle.Thickness = _G.CircleThickness
+		UserInputService.InputEnded:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseButton2 then
+				Holding = false
+			end
+		end)
 
-                if Holding then
-                    local targetPlayer = GetClosestPlayer()
-                    if targetPlayer then
-                        local targetPos = targetPlayer.Character[_G.AimPart].Position
-                        TweenService:Create(Camera, TweenInfo.new(_G.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                            CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
-                        }):Play()
-                    end
-                end
-            end
-        end)
-    else
-        _G.AimbotEnabled = false
-        _G.CircleVisible = false
-        if FOVCircle then
-            FOVCircle.Visible = false
-        end
-    end
+		RunService.RenderStepped:Connect(function()
+			if aimbotEnabled then
+				FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+				FOVCircle.Radius = _G.CircleRadius
+				FOVCircle.Filled = _G.CircleFilled
+				FOVCircle.Color = _G.CircleColor
+				FOVCircle.Visible = _G.CircleVisible
+				FOVCircle.Transparency = _G.CircleTransparency
+				FOVCircle.NumSides = _G.CircleSides
+				FOVCircle.Thickness = _G.CircleThickness
+
+				if Holding then
+					local targetPlayer = GetClosestPlayer()
+					if targetPlayer then
+						local targetPos = targetPlayer.Character[_G.AimPart].Position
+						TweenService:Create(Camera, TweenInfo.new(_G.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+							CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
+						}):Play()
+					end
+				end
+			end
+		end)
+	else
+		_G.AimbotEnabled = false
+		_G.CircleVisible = false
+		if FOVCircle then
+			FOVCircle.Visible = false
+		end
+	end
 end)
-
